@@ -1,0 +1,66 @@
+{
+  "directed": false,
+  "multigraph": false,
+  "graph": {
+    "community_labels": {
+      "0": "Community 0"
+    }
+  },
+  "topology_signature": "n=3;e=2;walletserviceapplication,walletserviceapplication_walletserviceapplication,walletserviceapplication_walletserviceapplication_main|walletserviceapplication\twalletserviceapplication_walletserviceapplication\tcontains;walletserviceapplication_walletserviceapplication\twalletserviceapplication_walletserviceapplication_main\tmethod",
+  "nodes": [
+    {
+      "id": "walletserviceapplication",
+      "label": "WalletServiceApplication.java",
+      "file_type": "code",
+      "source_file": "src/main/java/com/yanki/wallet/WalletServiceApplication.java",
+      "source_location": "L1",
+      "community": 0,
+      "community_name": "Community 0"
+    },
+    {
+      "id": "walletserviceapplication_walletserviceapplication",
+      "label": "WalletServiceApplication",
+      "file_type": "code",
+      "source_file": "src/main/java/com/yanki/wallet/WalletServiceApplication.java",
+      "source_location": "L15",
+      "community": 0,
+      "community_name": "Community 0"
+    },
+    {
+      "id": "walletserviceapplication_walletserviceapplication_main",
+      "label": ".main()",
+      "file_type": "code",
+      "source_file": "src/main/java/com/yanki/wallet/WalletServiceApplication.java",
+      "source_location": "L23",
+      "community": 0,
+      "community_name": "Community 0"
+    }
+  ],
+  "links": [
+    {
+      "source": "walletserviceapplication",
+      "target": "walletserviceapplication_walletserviceapplication",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/main/java/com/yanki/wallet/WalletServiceApplication.java",
+      "source_location": "L15",
+      "weight": 1,
+      "_src": "walletserviceapplication",
+      "_tgt": "walletserviceapplication_walletserviceapplication",
+      "confidence_score": 1
+    },
+    {
+      "source": "walletserviceapplication_walletserviceapplication",
+      "target": "walletserviceapplication_walletserviceapplication_main",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "src/main/java/com/yanki/wallet/WalletServiceApplication.java",
+      "source_location": "L23",
+      "weight": 1,
+      "_src": "walletserviceapplication_walletserviceapplication",
+      "_tgt": "walletserviceapplication_walletserviceapplication_main",
+      "confidence_score": 1
+    }
+  ],
+  "hyperedges": []
+}

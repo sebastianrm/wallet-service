@@ -1,0 +1,95 @@
+server:
+  port: ${SERVER_PORT:8087}
+  shutdown: graceful
+
+spring:
+  application:
+    name: wallet-service
+  config:
+    import: optional:configserver:${CONFIG_SERVER_URL:http://localhost:8888}
+  data:
+    mongodb:
+      uri: ${MONGODB_URI:mongodb://localhost:27017/yanki_wallet}
+      database: yanki_wallet
+      auto-index-creation: true
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      timeout: 2s
+      repositories:
+        enabled: false
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    consumer:
+      group-id: ${KAFKA_GROUP_ID:wallet-service}
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: com.yanki.*
+        spring.json.use.type.headers: false
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+  cloud:
+    config:
+      fail-fast: false
+      uri: ${CONFIG_SERVER_URL:http://config-server:8888}
+    discovery:
+      enabled: true
+
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_URL:http://discovery-service:8761/eureka/}
+  instance:
+    prefer-ip-address: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: always
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: method
+    tags-sorter: alpha
+
+logging:
+  config: classpath:logback-spring.xml
+  level:
+    com.yanki.wallet: ${LOG_LEVEL_COM_YANKI:INFO}
+    com.yanki.wallet.domain: ${LOG_LEVEL_DOMAIN:DEBUG}
+    com.yanki.wallet.infrastructure: ${LOG_LEVEL_INFRASTRUCTURE:DEBUG}
+    com.yanki.wallet.interfaces: ${LOG_LEVEL_INTERFACES:DEBUG}
+    org.apache.kafka.clients: ${LOG_LEVEL_KAFKA:WARN}
+    org.springframework.kafka: ${LOG_LEVEL_SPRING_KAFKA:WARN}
+    org.mongodb: ${LOG_LEVEL_MONGODB:WARN}
+    org.springframework.data.mongodb: ${LOG_LEVEL_SPRING_MONGODB:WARN}
+    org.springframework.data.redis: ${LOG_LEVEL_REDIS:WARN}
+  file:
+    name: ${LOG_DIR:logs}/wallet-service.log
+  logback:
+    rollingpolicy:
+      max-file-size: 100MB
+      max-history: 30
+
+yanki:
+  wallet:
+    topup:
+      timeout-min: ${YANKI_WALLET_TOPUP_TIMEOUT_MIN:5}
+    p2p:
+      daily-limit: ${YANKI_WALLET_P2P_DAILY_LIMIT:2000}
+    max-balance: ${YANKI_WALLET_MAX_BALANCE:10000}
+  cache:
+    balance-ttl: ${YANKI_CACHE_BALANCE_TTL:5m}
+    phone-mapping-ttl: ${YANKI_CACHE_PHONE_MAPPING_TTL:24h}

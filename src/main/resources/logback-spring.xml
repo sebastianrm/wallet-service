@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+
+    <!-- Propiedades globales de logging -->
+    <property name="LOG_DIR" value="${LOG_DIR:logs}"/>
+    <property name="APP_NAME" value="${spring.application.name:wallet-service}"/>
+    <property name="LOG_PATTERN" value="%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] [%X{traceId:-}] %-5level %logger{36} - %msg%n"/>
+    <property name="LOG_PATTERN_COLOR" value="%d{yyyy-MM-dd HH:mm:ss.SSS} %highlight{[%-5level]} %magenta{[%thread]} %cyan{[%X{traceId:-}]} %logger{36} - %msg%n"/>
+
+    <!-- Appender de consola con colores para desarrollo -->
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>${LOG_PATTERN_COLOR}</pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+    </appender>
+
+    <!-- Appender de archivo general (INFO y superior) -->
+    <appender name="FILE_GENERAL" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_DIR}/${APP_NAME}.log</file>
+        <encoder>
+            <pattern>${LOG_PATTERN}</pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_DIR}/archived/${APP_NAME}.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
+            <maxFileSize>100MB</maxFileSize>
+            <maxHistory>30</maxHistory>
+            <totalSizeCap>3GB</totalSizeCap>
+        </rollingPolicy>
+    </appender>
+
+    <!-- Appender de archivo de errores (ERROR y superior) -->
+    <appender name="FILE_ERROR" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_DIR}/${APP_NAME}-error.log</file>
+        <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+            <level>ERROR</level>
+        </filter>
+        <encoder>
+            <pattern>${LOG_PATTERN}</pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_DIR}/archived/${APP_NAME}-error.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
+            <maxFileSize>50MB</maxFileSize>
+            <maxHistory>90</maxHistory>
+            <totalSizeCap>1GB</totalSizeCap>
+        </rollingPolicy>
+    </appender>
+
+    <!-- Appender de archivo de auditoría (transacciones y operaciones clave) -->
+    <appender name="FILE_AUDIT" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_DIR}/${APP_NAME}-audit.log</file>
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} | %X{traceId:-} | %msg%n</pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_DIR}/archived/${APP_NAME}-audit.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
+            <maxFileSize>100MB</maxFileSize>
+            <maxHistory>365</maxHistory>
+            <totalSizeCap>5GB</totalSizeCap>
+        </rollingPolicy>
+    </appender>
+
+    <!-- Logger dedicado para auditoría -->
+    <logger name="com.yanki.wallet.audit" level="INFO" additivity="false">
+        <appender-ref ref="FILE_AUDIT"/>
+        <appender-ref ref="CONSOLE"/>
+    </logger>
+
+    <!-- Niveles de logging por paquete -->
+    <logger name="com.yanki.wallet" level="${LOG_LEVEL_COM_YANKI:INFO}"/>
+    <logger name="com.yanki.wallet.domain" level="${LOG_LEVEL_DOMAIN:DEBUG}"/>
+    <logger name="com.yanki.wallet.infrastructure" level="${LOG_LEVEL_INFRASTRUCTURE:DEBUG}"/>
+    <logger name="com.yanki.wallet.interfaces" level="${LOG_LEVEL_INTERFACES:DEBUG}"/>
+
+    <!-- Niveles de logging para dependencias externas -->
+    <logger name="org.apache.kafka" level="${LOG_LEVEL_KAFKA:WARN}"/>
+    <logger name="org.springframework.kafka" level="${LOG_LEVEL_SPRING_KAFKA:WARN}"/>
+    <logger name="org.mongodb" level="${LOG_LEVEL_MONGODB:WARN}"/>
+    <logger name="org.springframework.data.mongodb" level="${LOG_LEVEL_SPRING_MONGODB:WARN}"/>
+    <logger name="org.springframework.data.redis" level="${LOG_LEVEL_REDIS:WARN}"/>
+    <logger name="org.springframework.web" level="${LOG_LEVEL_SPRING_WEB:INFO}"/>
+    <logger name="org.springframework.security" level="${LOG_LEVEL_SPRING_SECURITY:WARN}"/>
+    <logger name="org.springframework.boot.actuate" level="${LOG_LEVEL_ACTUATOR:INFO}"/>
+    <logger name="com.netflix" level="${LOG_LEVEL_NETFLIX:WARN}"/>
+    <logger name="io.netty" level="${LOG_LEVEL_NETTY:WARN}"/>
+    <logger name="reactor" level="${LOG_LEVEL_REACTOR:WARN}"/>
+
+    <!-- Root logger -->
+    <root level="${LOG_LEVEL_ROOT:INFO}">
+        <appender-ref ref="CONSOLE"/>
+        <appender-ref ref="FILE_GENERAL"/>
+        <appender-ref ref="FILE_ERROR"/>
+    </root>
+
+</configuration>
