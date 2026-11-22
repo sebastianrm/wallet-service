@@ -5,7 +5,58 @@
 - **Version**: 1.0.0
 - **Service**: `wallet-service` (Port 8087)
 - **Part**: III (Event-Driven + Wallet Yanki)
-- **Status**: 🟨 Esqueleto
+- **Status**: 🟢 Implementado (Arquitectura Hexagonal completa)
+
+---
+
+## Arquitectura Hexagonal
+
+El servicio sigue estrictamente la **Arquitectura Hexagonal** (Puertos y Adaptadores).
+
+### Estructura de paquetes
+
+```
+com.yanki.wallet
+├── domain/                    # NÚCLEO PURO (sin dependencias de infraestructura)
+│   ├── model/                 # Entidades: Wallet, Transaction, CustomerRiskView
+│   ├── exception/             # BusinessException, ErrorCodes
+│   ├── event/                 # Eventos Kafka: WalletOpenedEvent, WalletTransactionEvent, etc.
+│   ├── port/
+│   │   ├── in/                # Puertos de entrada (casos de uso): OpenWalletUseCase, TopUpWalletUseCase, etc.
+│   │   └── out/               # Puertos de salida: WalletPersistencePort, EventPublisherPort, etc.
+│   └── service/               # WalletService (implementa todos los casos de uso)
+├── infrastructure/            # ADAPTADORES SECUNDARIOS
+│   ├── persistence/           # MongoDB: documentos, repositorios, mappers, adaptadores
+│   ├── messaging/             # Kafka: publisher adapter, consumers
+│   └── cache/                 # Redis: cache adapter
+└── interfaces/                # ADAPTADORES PRIMARIOS
+    └── rest/                  # REST: controller, DTOs, mapper, GlobalExceptionHandler
+```
+
+### Reglas verificadas
+
+| Regla | Estado |
+|-------|--------|
+| `domain` no importa `infrastructure` ni `interfaces` | ✅ |
+| Sin `.block()`, `.blockingGet()`, `.blockingFirst()` en dominio | ✅ |
+| Entidades puras sin `@Document`/`@Id` | ✅ |
+| `domain.service` no importa Spring Data/Kafka/Web | ✅ |
+| Controladores inyectan puertos, no repositorios | ✅ |
+| Javadoc en español | ✅ |
+| Montos en `BigDecimal` | ✅ |
+| Consumidores Kafka con idempotencia (`processed_events`) | ✅ |
+
+### Casos de uso implementados
+
+| Caso de Uso | Puerto de Entrada | Descripción |
+|-------------|-------------------|-------------|
+| Apertura wallet | `OpenWalletUseCase` | Verifica unicidad + riesgo, crea wallet, publica evento |
+| Top-up | `TopUpWalletUseCase` | Requiere tarjeta débito, crea transacción PENDING, publica evento |
+| P2P | `SendP2PUseCase` | Busca destinatario por teléfono, debita al emisor |
+| Retiro | `WithdrawWalletUseCase` | Debita wallet, crea transacción, publica evento |
+| Asociar tarjeta | `AssociateCardUseCase` | Vincula tarjeta débito a wallet |
+| Desasociar tarjeta | `DisassociateCardUseCase` | Remueve tarjeta débito de wallet |
+| Consulta | `GetWalletUseCase` | findById, findByPhoneNumber, getTransactions |
 
 ---
 
@@ -95,6 +146,8 @@ Gestiona el **monedero móvil Yanki** (Parte III - funcionalidad nativa event-dr
 | `POST` | `/api/wallets/{id}/send` | Enviar dinero (counterpartyPhone, amount) |
 | `POST` | `/api/wallets/{id}/withdraw` | Retirar a cuenta bancaria (accountId, amount) |
 | `POST` | `/api/wallets/{id}/associate-card` | Asociar tarjeta débito (cardId) |
+| `POST` | `/api/wallets/{id}/disassociate-card` | Desasociar tarjeta débito |
+| `GET` | `/api/wallets` | Listar todas las wallets (paginado) |
 | `GET` | `/api/wallets/{id}/transactions` | Historial transacciones |
 
 ### Kafka (Outbound)
@@ -238,17 +291,30 @@ mvn clean verify
 ---
 
 ## Error Handling
+
 | Code | HTTP | Cause |
 |------|------|-------|
 | `WALLET_NOT_FOUND` | 404 | Wallet no existe |
 | `WALLET_ALREADY_EXISTS` | 409 | Cliente ya tiene wallet |
-| `INSUFFICIENT_BALANCE` | 400 | Saldo insuficiente para send/withdraw |
-| `COUNTERPARTY_NOT_FOUND` | 404 | Teléfono destino sin wallet |
-| `DAILY_P2P_LIMIT_EXCEEDED` | 400 | Límite P2P diario superado |
-| `MAX_BALANCE_EXCEEDED` | 400 | Top-up excede saldo máximo |
+| `WALLET_INACTIVE` | 400 | Wallet no está activa para operar |
 | `WALLET_BLOCKED_RISK` | 403 | Deuda vencida (risk view) |
-| `DEBIT_CARD_NOT_ASSOCIATED` | 400 | Tarjeta no asociada o cerrada |
-| `TOPUP_TIMEOUT` | 408 | Cards no respondió en timeout |
+| `CUSTOMER_NOT_FOUND` | 404 | Cliente no encontrado |
+| `CUSTOMER_HAS_OVERDUE_DEBT` | 403 | Cliente tiene deuda vencida |
+| `INSUFFICIENT_BALANCE` | 400 | Saldo insuficiente para send/withdraw |
+| `INVALID_AMOUNT` | 400 | Monto inválido (nulo o ≤ 0) |
+| `RECIPIENT_NOT_FOUND` | 404 | Teléfono destino sin wallet |
+| `CANNOT_SEND_TO_SELF` | 400 | Intento de envío a la misma wallet |
+| `P2P_DAILY_LIMIT_EXCEEDED` | 400 | Límite P2P diario superado |
+| `DEBIT_CARD_REQUIRED` | 400 | Se requiere tarjeta débito asociada para top-up |
+| `DEBIT_CARD_NOT_FOUND` | 404 | Tarjeta débito no encontrada |
+| `CARD_ALREADY_ASSOCIATED` | 409 | La tarjeta ya está asociada |
+| `NO_CARD_ASSOCIATED` | 400 | No hay tarjeta asociada para desasociar |
+| `BANK_ACCOUNT_REQUIRED` | 400 | Se requiere cuenta bancaria para retiro |
+| `VALIDATION_ERROR` | 400 | Error de validación general |
+| `WALLET_LIMIT_EXCEEDED` | 400 | Límite de wallet excedido |
+| `INSUFFICIENT_FUNDS` | 400 | Fondos insuficientes |
+| `INVALID_WITHDRAWAL_DESTINATION` | 400 | Destino de retiro inválido |
+| `INVALID_DEBIT_CARD` | 400 | Tarjeta débito inválida |
 
 ---
 

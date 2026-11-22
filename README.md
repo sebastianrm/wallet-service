@@ -89,7 +89,9 @@ Base: `/api/wallets`
 | `POST` | `/api/wallets/{id}/send` | Enviar dinero (counterpartyPhone, amount) | `202` `TransactionResponse` |
 | `POST` | `/api/wallets/{id}/withdraw` | Retirar a cuenta bancaria (accountId, amount) | `202` `TransactionResponse` |
 | `POST` | `/api/wallets/{id}/associate-card` | Asociar tarjeta débito (cardId) | `200` `WalletResponse` |
-| `GET` | `/api/wallets/{id}/transactions` | Historial transacciones | `200` `PageResponse<TransactionResponse>` |
+| `POST` | `/api/wallets/{id}/disassociate-card` | Desasociar tarjeta débito | `200` `WalletResponse` |
+| `GET` | `/api/wallets` | Listar todas las wallets (paginado) | `200` `WalletPageResponse` |
+| `GET` | `/api/wallets/{id}/transactions` | Historial transacciones | `200` `Flux<TransactionResponse>` |
 
 ### 2.1 Ejemplos
 
@@ -119,6 +121,10 @@ curl -X POST http://localhost:8087/api/wallets/WALLET-123/withdraw \
 curl -X POST http://localhost:8087/api/wallets/WALLET-123/associate-card \
   -H "Content-Type: application/json" \
   -d '{"cardId": "CARD-789"}'
+
+# Desasociación tarjeta débito
+curl -X POST http://localhost:8087/api/wallets/WALLET-123/disassociate-card \
+  -H "Authorization: Bearer <token>"
 ```
 
 ### 2.2 Errores
@@ -127,10 +133,20 @@ curl -X POST http://localhost:8087/api/wallets/WALLET-123/associate-card \
 |---|---|---|
 | `WALLET_NOT_FOUND` | 404 | Wallet no existe |
 | `WALLET_ALREADY_EXISTS` | 409 | Cliente ya tiene wallet |
-| `CUSTOMER_HAS_OVERDUE_DEBT` | 403 | Deuda vencida bloquea operación |
-| `INVALID_DEBIT_CARD` | 400 | Tarjeta débito inválida/no asociada |
-| `INSUFFICIENT_WALLET_BALANCE` | 400 | Saldo insuficiente para enviar/retirar |
-| `WALLET_TOPUP_FAILED` | 400 | Top-up rechazado por cards-service |
+| `WALLET_INACTIVE` | 400 | Wallet no está activa para operar |
+| `WALLET_BLOCKED_RISK` | 403 | Deuda vencida (risk view) |
+| `CUSTOMER_HAS_OVERDUE_DEBT` | 403 | Cliente tiene deuda vencida |
+| `INSUFFICIENT_BALANCE` | 400 | Saldo insuficiente para enviar/retirar |
+| `INVALID_AMOUNT` | 400 | Monto inválido (nulo o ≤ 0) |
+| `RECIPIENT_NOT_FOUND` | 404 | Teléfono destino sin wallet |
+| `CANNOT_SEND_TO_SELF` | 400 | Intento de envío a la misma wallet |
+| `DEBIT_CARD_REQUIRED` | 400 | Se requiere tarjeta débito asociada para top-up |
+| `CARD_ALREADY_ASSOCIATED` | 409 | La tarjeta ya está asociada |
+| `NO_CARD_ASSOCIATED` | 400 | No hay tarjeta asociada para desasociar |
+| `VALIDATION_ERROR` | 400 | Error de validación general |
+| `P2P_DAILY_LIMIT_EXCEEDED` | 400 | Límite P2P diario superado |
+| `WALLET_LIMIT_EXCEEDED` | 400 | Límite de wallet excedido |
+| `INVALID_DEBIT_CARD` | 400 | Tarjeta débito inválida |
 
 ---
 
@@ -212,13 +228,14 @@ sequenceDiagram
 ### Wallet (`wallets`)
 
 ```java
-@Document(collection = "wallets")
+// Entidad pura de dominio (sin anotaciones de infraestructura)
 public class Wallet {
-    @Id String id;
+    String id;
     String customerId;
-    String status;                    // ACTIVE | BLOCKED | CLOSED
-    BigDecimal balance;
     String phoneNumber;               // Para P2P
+    String imei;                      // IMEI del dispositivo
+    BigDecimal balance;
+    WalletStatus status;              // ACTIVE | BLOCKED | CLOSED
     String associatedDebitCardId;     // Tarjeta débito para top-up
     LocalDateTime createdAt;
     LocalDateTime updatedAt;
@@ -228,17 +245,18 @@ public class Wallet {
 ### Transacción (`transactions`)
 
 ```java
-@Document(collection = "transactions")
+// Entidad pura de dominio (sin anotaciones de infraestructura)
 public class Transaction {
-    @Id String id;
+    String id;
     String walletId;
-    String type;                      // TOPUP | SEND | RECEIVE | WITHDRAWAL
+    TransactionType type;             // TOPUP | SEND | RECEIVE | WITHDRAWAL
     BigDecimal amount;
     BigDecimal balanceAfter;
+    TransactionStatus status;         // PENDING | COMPLETED | REJECTED
     String counterpartyPhone;         // Para SEND/RECEIVE
     String counterpartyWalletId;
-    String status;                    // PENDING | COMPLETED | REJECTED
     String referenceId;               // Para top-up/withdrawal
+    String description;               // Descripción de la transacción
     LocalDateTime occurredAt;
     LocalDateTime createdAt;
 }
