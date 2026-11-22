@@ -1,5 +1,6 @@
 package com.yanki.wallet.interfaces.rest;
 
+import com.mongodb.MongoWriteException;
 import com.yanki.wallet.domain.exception.BusinessException;
 import com.yanki.wallet.domain.exception.ErrorCodes;
 import com.yanki.wallet.interfaces.rest.dto.ApiError;
@@ -75,6 +76,45 @@ public class GlobalExceptionHandler {
                 .build();
 
         return ResponseEntity.badRequest().body(error);
+    }
+
+    @ExceptionHandler(MongoWriteException.class)
+    public ResponseEntity<ApiError> handleMongoWriteException(MongoWriteException ex, ServerWebExchange exchange) {
+        String path = exchange.getRequest().getPath().value();
+        String method = exchange.getRequest().getMethod().name();
+
+        // E11000 = duplicate key error
+        com.mongodb.WriteError writeError = ex.getError();
+        if (writeError != null && writeError.getCode() == 11000) {
+            log.warn("[MongoWriteException] {} {} - Clave duplicada en MongoDB: code=11000 message={}",
+                    method, path, ex.getMessage());
+
+            ApiError error = ApiError.builder()
+                    .timestamp(LocalDateTime.now())
+                    .status(HttpStatus.CONFLICT.value())
+                    .error(HttpStatus.CONFLICT.getReasonPhrase())
+                    .code(ErrorCodes.WALLET_ALREADY_EXISTS)
+                    .message("Ya existe una wallet registrada con este documento, número de celular o IMEI. Verifique los datos e intente con información diferente.")
+                    .path(path)
+                    .build();
+
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(error);
+        }
+
+        // Other MongoDB write errors
+        log.error("[MongoWriteException] {} {} - Error de escritura en MongoDB: code={} message={}",
+                method, path, writeError != null ? writeError.getCode() : "N/A", ex.getMessage(), ex);
+
+        ApiError error = ApiError.builder()
+                .timestamp(LocalDateTime.now())
+                .status(HttpStatus.INTERNAL_SERVER_ERROR.value())
+                .error(HttpStatus.INTERNAL_SERVER_ERROR.getReasonPhrase())
+                .code("INTERNAL_ERROR")
+                .message("Error interno del servidor")
+                .path(path)
+                .build();
+
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
     }
 
     @ExceptionHandler(Exception.class)

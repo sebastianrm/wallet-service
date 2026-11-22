@@ -4,6 +4,7 @@ import com.yanki.wallet.domain.model.Wallet;
 import com.yanki.wallet.domain.port.out.WalletPersistencePort;
 import com.yanki.wallet.infrastructure.persistence.mapper.WalletDocumentMapper;
 import com.yanki.wallet.infrastructure.persistence.repository.SpringDataWalletRepository;
+import io.reactivex.rxjava3.core.Flowable;
 import io.reactivex.rxjava3.core.Maybe;
 import io.reactivex.rxjava3.core.Single;
 import lombok.extern.slf4j.Slf4j;
@@ -68,5 +69,15 @@ public class WalletMongoAdapter implements WalletPersistencePort {
         )
                 .doOnSuccess(w -> log.debug("[MongoDB] Wallet guardada exitosamente: {}", w.getId()))
                 .doOnError(error -> log.error("[MongoDB] Error guardando wallet: {} - {}", wallet.getId(), error.getMessage(), error));
+    }
+
+    @Override
+    public Flowable<Wallet> findAll() {
+        log.debug("[MongoDB] Listando todas las wallets");
+        return Flowable.fromPublisher(
+                repository.findAll().map(WalletDocumentMapper::toDomain)
+        )
+                .doOnComplete(() -> log.debug("[MongoDB] Listado de wallets completado"))
+                .doOnError(error -> log.error("[MongoDB] Error listando wallets: {}", error.getMessage(), error));
     }
 }

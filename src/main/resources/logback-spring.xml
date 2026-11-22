@@ -4,10 +4,10 @@
     <!-- Propiedades globales de logging -->
     <property name="LOG_DIR" value="${LOG_DIR:logs}"/>
     <property name="APP_NAME" value="${spring.application.name:wallet-service}"/>
-    <property name="LOG_PATTERN" value="%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] [%X{traceId:-}] %-5level %logger{36} - %msg%n"/>
-    <property name="LOG_PATTERN_COLOR" value="%d{yyyy-MM-dd HH:mm:ss.SSS} %highlight{[%-5level]} %magenta{[%thread]} %cyan{[%X{traceId:-}]} %logger{36} - %msg%n"/>
+    <property name="LOG_PATTERN" value="%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] [%X{traceId:-default}] [%X{spanId:-default}] %-5level %logger{36} - %msg%n"/>
+    <property name="LOG_PATTERN_COLOR" value="%d{yyyy-MM-dd HH:mm:ss.SSS} %highlight{[%-5level]} %yellow{%logger{36}} - %msg%n"/>
 
-    <!-- Appender de consola con colores para desarrollo -->
+    <!-- Appender de consola - colores solo en perfil dev -->
     <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>
             <pattern>${LOG_PATTERN_COLOR}</pattern>
@@ -30,18 +30,18 @@
         </rollingPolicy>
     </appender>
 
-    <!-- Appender de archivo de errores (ERROR y superior) -->
+    <!-- Appender de archivo de errores -->
     <appender name="FILE_ERROR" class="ch.qos.logback.core.rolling.RollingFileAppender">
         <file>${LOG_DIR}/${APP_NAME}-error.log</file>
-        <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
-            <level>ERROR</level>
-        </filter>
         <encoder>
             <pattern>${LOG_PATTERN}</pattern>
             <charset>UTF-8</charset>
         </encoder>
+        <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+            <level>WARN</level>
+        </filter>
         <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
-            <fileNamePattern>${LOG_DIR}/archived/${APP_NAME}-error.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
+            <fileNamePattern>${LOG_DIR}/archived/${APP_NAME}-error.%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
             <maxFileSize>50MB</maxFileSize>
             <maxHistory>90</maxHistory>
             <totalSizeCap>1GB</totalSizeCap>
@@ -63,11 +63,25 @@
         </rollingPolicy>
     </appender>
 
-    <!-- Logger dedicado para auditoría -->
-    <logger name="com.yanki.wallet.audit" level="INFO" additivity="false">
-        <appender-ref ref="FILE_AUDIT"/>
-        <appender-ref ref="CONSOLE"/>
-    </logger>
+    <!-- Appender de archivo de auditoria (solo INFO de operaciones de negocio) -->
+    <appender name="FILE_AUDIT" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_DIR}/${APP_NAME}-audit.log</file>
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+        <filter class="ch.qos.logback.classic.filter.LevelFilter">
+            <level>INFO</level>
+            <onMatch>ACCEPT</onMatch>
+            <onMismatch>DENY</onMismatch>
+        </filter>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_DIR}/archived/${APP_NAME}-audit.%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
+            <maxFileSize>50MB</maxFileSize>
+            <maxHistory>365</maxHistory>
+            <totalSizeCap>2GB</totalSizeCap>
+        </rollingPolicy>
+    </appender>
 
     <!-- Niveles de logging por paquete -->
     <logger name="com.yanki.wallet" level="${LOG_LEVEL_COM_YANKI:INFO}"/>
@@ -89,7 +103,7 @@
     <logger name="reactor" level="${LOG_LEVEL_REACTOR:WARN}"/>
 
     <!-- Root logger -->
-    <root level="${LOG_LEVEL_ROOT:INFO}">
+    <root level="${LOG_LEVEL_ROOT:WARN}">
         <appender-ref ref="CONSOLE"/>
         <appender-ref ref="FILE_GENERAL"/>
         <appender-ref ref="FILE_ERROR"/>

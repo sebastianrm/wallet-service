@@ -481,6 +481,14 @@ public class WalletService implements
                 .subscribeOn(Schedulers.io());
     }
 
+    @Override
+    public Flowable<Wallet> listAll() {
+        log.debug("Listando todas las wallets");
+        return walletPersistencePort.findAll()
+                .doOnError(error -> log.error("Error listando wallets: {}", error.getMessage(), error))
+                .subscribeOn(Schedulers.io());
+    }
+
     // ==================== Risk & Blocking ====================
 
     /**

@@ -1,5 +1,7 @@
 package com.yanki.wallet.interfaces.rest.controller;
 
+import com.yanki.wallet.domain.exception.BusinessException;
+import com.yanki.wallet.domain.exception.ErrorCodes;
 import com.yanki.wallet.domain.model.Transaction;
 import com.yanki.wallet.domain.model.Wallet;
 import com.yanki.wallet.domain.port.in.AssociateCardUseCase;
@@ -15,6 +17,7 @@ import com.yanki.wallet.interfaces.rest.dto.AssociateCardRequest;
 import com.yanki.wallet.interfaces.rest.dto.OpenWalletRequest;
 import com.yanki.wallet.interfaces.rest.dto.SendRequest;
 import com.yanki.wallet.interfaces.rest.dto.TransactionResponse;
+import com.yanki.wallet.interfaces.rest.dto.WalletPageResponse;
 import com.yanki.wallet.interfaces.rest.dto.WalletResponse;
 import com.yanki.wallet.interfaces.rest.mapper.WalletRestMapper;
 import io.swagger.v3.oas.annotations.Operation;
@@ -33,6 +36,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import reactor.adapter.rxjava.RxJava3Adapter;
@@ -178,6 +182,9 @@ public class WalletController {
                             .map(WalletRestMapper::toResponse)
             );
             return response
+                    .switchIfEmpty(Mono.error(new BusinessException(
+                            ErrorCodes.WALLET_NOT_FOUND,
+                            "Wallet no encontrada: " + id)))
                     .doOnSuccess(w -> log.debug("GET /api/wallets/{} - Wallet encontrada: saldo={}", id, w.balance()))
                     .doOnError(error -> log.error("GET /api/wallets/{} - Error al consultar wallet: {}", id, error.getMessage()));
         } catch (Exception e) {
@@ -214,10 +221,67 @@ public class WalletController {
                             .map(WalletRestMapper::toResponse)
             );
             return response
+                    .switchIfEmpty(Mono.error(new BusinessException(
+                            ErrorCodes.WALLET_NOT_FOUND,
+                            "Wallet no encontrada para el teléfono: " + phone)))
                     .doOnSuccess(w -> log.debug("GET /api/wallets/phone/{} - Wallet encontrada: walletId={}", phone, w.id()))
                     .doOnError(error -> log.error("GET /api/wallets/phone/{} - Error al buscar wallet: {}", phone, error.getMessage()));
         } catch (Exception e) {
             log.error("GET /api/wallets/phone/{} - Excepción al buscar wallet: {}", phone, e.getMessage(), e);
+            throw e;
+        }
+    }
+
+    @GetMapping
+    @Operation(
+        summary = "Lista todas las wallets con paginación",
+        description = "Retorna una lista paginada de wallets Yanki. " +
+            "Si no se proporcionan parámetros, retorna todas las wallets."
+    )
+    @ApiResponses({
+        @ApiResponse(
+            responseCode = "200",
+            description = "Lista de wallets encontradas con metadatos de paginación.",
+            content = @Content(mediaType = "application/json", schema = @Schema(implementation = WalletResponse.class))
+        )
+    })
+    public Mono<WalletPageResponse> findAll(
+            @Parameter(description = "Número de página (base 0).", example = "0")
+            @RequestParam(value = "page", defaultValue = "0") int page,
+            @Parameter(description = "Tamaño de página (máximo 100).", example = "20")
+            @RequestParam(value = "size", defaultValue = "20") int size) {
+        log.debug("GET /api/wallets - Listar wallets: page={}, size={}", page, size);
+        try {
+            if (size > 100) {
+                size = 100;
+            }
+            int pageSize = size;
+            java.util.List<Wallet> wallets = new java.util.ArrayList<>();
+            getWalletUseCase.listAll().subscribe(wallets::add);
+            java.util.List<WalletResponse> content = wallets.stream()
+                .map(WalletRestMapper::toResponse)
+                .collect(java.util.stream.Collectors.toList());
+            int totalElements = content.size();
+            int totalPages = (int) Math.ceil((double) totalElements / pageSize);
+            int fromIndex = page * pageSize;
+            int toIndex = Math.min(fromIndex + pageSize, totalElements);
+            java.util.List<WalletResponse> pagedContent = (fromIndex < totalElements)
+                ? content.subList(fromIndex, toIndex)
+                : java.util.Collections.emptyList();
+            WalletPageResponse response = WalletPageResponse.builder()
+                .content(pagedContent)
+                .page(page)
+                .size(pageSize)
+                .totalElements(totalElements)
+                .totalPages(totalPages)
+                .first(page == 0)
+                .last(page >= totalPages - 1)
+                .build();
+            log.debug("GET /api/wallets - Wallets encontradas: {} resultados", totalElements);
+            return Mono.just(response)
+                .doOnError(error -> log.error("GET /api/wallets - Error al listar wallets: {}", error.getMessage()));
+        } catch (Exception e) {
+            log.error("GET /api/wallets - Excepción al listar wallets: {}", e.getMessage(), e);
             throw e;
         }
     }

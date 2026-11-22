@@ -8,4 +8,9 @@ public interface GetWalletUseCase {
     Maybe<Wallet> findById(String walletId);
     Maybe<Wallet> findByPhoneNumber(String phoneNumber);
     Flowable<Transaction> getTransactions(String walletId);
+    /**
+     * Retorna todas las wallets almacenadas.
+     * @return flujo reactivo con todas las wallets
+     */
+    Flowable<Wallet> listAll();
 }
