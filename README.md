@@ -387,3 +387,4 @@ Los casos de prueba detallados (18 casos: 7 Happy Path + 11 Error) se encuentran
 | `../docs/EVENTOS.md` | Catálogo topics Kafka | wallet.*, debit.payment, card.* |
 | `../docker-compose.full.yml` | Infraestructura | Servicios y dependencias |
 | `../init-mongo-parte1.js` | Datos de prueba | Vistas locales y seed data |
+| `api/wallet-service.yaml` | Contrato OpenAPI 3.0 | Especificación completa con schemas, endpoints y errores |

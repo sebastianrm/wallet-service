@@ -1,0 +1,674 @@
+openapi: 3.0.3
+info:
+  title: Yanki Wallet Service API
+  description: |
+    API REST del monedero móvil Yanki para operaciones de pago P2P y top-up.
+    
+    Permite abrir wallets sin ser cliente del banco, cargar saldo desde tarjeta débito,
+    enviar dinero P2P por teléfono, retirar a cuenta bancaria y asociar tarjetas débito.
+    
+    **Características principales:**
+    - Apertura de wallet con DNI/CEX/Pasaporte (no requiere ser cliente del banco)
+    - Top-up desde tarjeta débito asociada (flujo event-driven)
+    - Envío P2P por número de teléfono
+    - Retiro a cuenta bancaria del mismo cliente
+    - Asociación/desasociación de tarjeta débito
+    - Historial de transacciones
+  version: 1.0.0
+  contact:
+    name: Sebastian Retamal Morales
+    email: retamal.sebastian@gmail.com
+  license:
+    name: Proprietary
+    url: https://yanki.com/license
+
+servers:
+  - url: http://localhost:8087
+    description: Entorno local de desarrollo
+  - url: https://api-gateway.yanki.com/api/wallets
+    description: Entorno de producción (vía API Gateway)
+
+tags:
+  - name: Wallets
+    description: Gestión de monederos móviles Yanki
+
+paths:
+  /api/wallets:
+    post:
+      tags: [Wallets]
+      summary: Abre una nueva wallet
+      description: |
+        Crea un monedero móvil Yanki para un cliente identificado por DNI/CEX/Pasaporte.
+        No se requiere ser cliente del banco. Valida que no exista ya una wallet para el mismo cliente.
+      operationId: openWallet
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OpenWalletRequest'
+            example:
+              documentType: "DNI"
+              documentNumber: "70100001"
+              phone: "+51999888777"
+              imei: "353456789012345"
+              email: "juan@email.com"
+              firstName: "Juan"
+              lastName: "Pérez"
+              birthDate: "1990-01-01"
+      responses:
+        '201':
+          description: Wallet creada exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WalletResponse'
+        '400':
+          description: Datos de solicitud inválidos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '409':
+          description: Wallet ya existe para ese cliente o el cliente tiene deuda vencida
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+    get:
+      tags: [Wallets]
+      summary: Lista todas las wallets con paginación
+      description: Retorna una lista paginada de wallets Yanki
+      operationId: findAllWallets
+      parameters:
+        - name: page
+          in: query
+          required: false
+          description: Número de página (base 0)
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
+        - name: size
+          in: query
+          required: false
+          description: Tamaño de página (máximo 100)
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 100
+      responses:
+        '200':
+          description: Lista de wallets encontradas con metadatos de paginación
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WalletPageResponse'
+
+  /api/wallets/{id}:
+    get:
+      tags: [Wallets]
+      summary: Obtiene detalle de una wallet
+      description: Retorna la información completa de una wallet identificada por su ID único
+      operationId: getWalletById
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Identificador único de la wallet
+          schema:
+            type: string
+            example: "WALLET-1234567890ABCDEF"
+      responses:
+        '200':
+          description: Wallet encontrada con todos sus detalles
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WalletResponse'
+        '404':
+          description: No se encontró una wallet con el ID proporcionado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+
+  /api/wallets/phone/{phone}:
+    get:
+      tags: [Wallets]
+      summary: Busca wallet por número de teléfono
+      description: Retorna la wallet asociada a un número de teléfono. Se usa para identificar el wallet destino en operaciones P2P
+      operationId: getWalletByPhone
+      parameters:
+        - name: phone
+          in: path
+          required: true
+          description: Número de teléfono asociado a la wallet
+          schema:
+            type: string
+            example: "+51999888777"
+      responses:
+        '200':
+          description: Wallet encontrada para el número de teléfono
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WalletResponse'
+        '404':
+          description: No se encontró una wallet asociada al número de teléfono
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+
+  /api/wallets/{id}/topup:
+    post:
+      tags: [Wallets]
+      summary: Carga saldo desde tarjeta débito (top-up)
+      description: |
+        Carga saldo al wallet desde la tarjeta débito asociada. Requiere que la wallet tenga una tarjeta débito válida asociada.
+        Flujo event-driven: se publica wallet.topup.requested.v1 y se espera la respuesta vía wallet.topup.settled.v1
+      operationId: topUp
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Identificador único de la wallet
+          schema:
+            type: string
+            example: "WALLET-1234567890ABCDEF"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AmountRequest'
+            example:
+              amount: 100.00
+      responses:
+        '200':
+          description: Top-up iniciado exitosamente (estado PENDING hasta conciliación)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransactionResponse'
+        '404':
+          description: No se encontró una wallet con el ID proporcionado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '409':
+          description: La wallet no tiene tarjeta débito asociada o está bloqueada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+
+  /api/wallets/{id}/send:
+    post:
+      tags: [Wallets]
+      summary: Envía dinero a otro wallet P2P
+      description: |
+        Transfiere saldo entre wallets Yanki identificadas por número de teléfono.
+        Valida saldo suficiente, que el destinatario exista y que no se envíe a uno mismo
+      operationId: sendP2P
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Identificador único de la wallet origen
+          schema:
+            type: string
+            example: "WALLET-1234567890ABCDEF"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SendRequest'
+            example:
+              recipientPhone: "+51999888777"
+              amount: 50.00
+      responses:
+        '200':
+          description: Envío P2P realizado exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransactionResponse'
+        '404':
+          description: No se encontró la wallet origen
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '409':
+          description: Saldo insuficiente, wallet bloqueada, destinatario no encontrado o envío a uno mismo
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+
+  /api/wallets/{id}/withdraw:
+    post:
+      tags: [Wallets]
+      summary: Retira saldo a cuenta bancaria
+      description: Transfiere saldo del wallet a una cuenta bancaria del mismo cliente
+      operationId: withdraw
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Identificador único de la wallet
+          schema:
+            type: string
+            example: "WALLET-1234567890ABCDEF"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AmountRequest'
+            example:
+              amount: 200.00
+      responses:
+        '200':
+          description: Retiro realizado exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransactionResponse'
+        '404':
+          description: No se encontró una wallet con el ID proporcionado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '409':
+          description: Saldo insuficiente, wallet bloqueada o el cliente no tiene cuenta bancaria asociada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+
+  /api/wallets/{id}/associate-card:
+    post:
+      tags: [Wallets]
+      summary: Asocia tarjeta débito al wallet
+      description: Vincula una tarjeta débito del banco al wallet para permitir operaciones de top-up
+      operationId: associateCard
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Identificador único de la wallet
+          schema:
+            type: string
+            example: "WALLET-1234567890ABCDEF"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssociateCardRequest'
+            example:
+              cardId: "CARD-1234567890ABCDEF"
+      responses:
+        '200':
+          description: Tarjeta débito asociada exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WalletResponse'
+        '404':
+          description: No se encontró una wallet con el ID proporcionado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '409':
+          description: La wallet ya tiene una tarjeta débito asociada o está bloqueada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+
+  /api/wallets/{id}/disassociate-card:
+    post:
+      tags: [Wallets]
+      summary: Desasocia tarjeta débito del wallet
+      description: Elimina la vinculación entre la tarjeta débito y el wallet
+      operationId: disassociateCard
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Identificador único de la wallet
+          schema:
+            type: string
+            example: "WALLET-1234567890ABCDEF"
+      responses:
+        '200':
+          description: Tarjeta débito desasociada exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WalletResponse'
+        '404':
+          description: No se encontró una wallet con el ID proporcionado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '409':
+          description: La wallet no tiene tarjeta débito asociada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+
+  /api/wallets/{id}/transactions:
+    get:
+      tags: [Wallets]
+      summary: Historial de transacciones del wallet
+      description: Retorna el historial completo de transacciones de una wallet específica
+      operationId: getTransactions
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Identificador único de la wallet
+          schema:
+            type: string
+            example: "WALLET-1234567890ABCDEF"
+      responses:
+        '200':
+          description: Lista de transacciones del wallet
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TransactionResponse'
+        '404':
+          description: No se encontró una wallet con el ID proporcionado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+
+components:
+  schemas:
+    OpenWalletRequest:
+      type: object
+      required: [documentType, documentNumber, phone, imei, email]
+      description: Datos para abrir una nueva wallet Yanki
+      properties:
+        documentType:
+          type: string
+          description: Tipo de documento de identidad
+          example: "DNI"
+        documentNumber:
+          type: string
+          description: Número de documento de identidad
+          example: "70100001"
+        phone:
+          type: string
+          description: Número de teléfono (formato internacional, 7-15 dígitos)
+          example: "+51999888777"
+          pattern: "^\\+?[0-9]{7,15}$"
+        imei:
+          type: string
+          description: IMEI del celular (15 dígitos)
+          example: "353456789012345"
+          pattern: "^[0-9]{15}$"
+        email:
+          type: string
+          format: email
+          description: Correo electrónico del titular
+          example: "usuario@email.com"
+        firstName:
+          type: string
+          description: Nombres del titular
+          example: "Juan"
+          nullable: true
+        lastName:
+          type: string
+          description: Apellidos del titular
+          example: "Pérez"
+          nullable: true
+        birthDate:
+          type: string
+          format: date
+          description: Fecha de nacimiento (YYYY-MM-DD)
+          example: "1990-01-01"
+          nullable: true
+
+    WalletResponse:
+      type: object
+      description: Detalle de una wallet Yanki
+      properties:
+        id:
+          type: string
+          description: Identificador único de la wallet
+          example: "WALLET-1234567890ABCDEF"
+        customerId:
+          type: string
+          description: Identificador del cliente propietario (formato: documentType-documentNumber)
+          example: "DNI-70100001"
+        phoneNumber:
+          type: string
+          description: Número de teléfono asociado a la wallet
+          example: "+51999888777"
+        balance:
+          type: number
+          format: decimal
+          description: Saldo actual disponible en la wallet
+          example: 1000.50
+        status:
+          type: string
+          description: |
+            Estado actual de la wallet.
+            - ACTIVE: wallet activa y operativa
+            - BLOCKED: wallet bloqueada
+            - CLOSED: wallet cerrada
+          enum: [ACTIVE, BLOCKED, CLOSED]
+          example: "ACTIVE"
+        associatedDebitCardId:
+          type: string
+          description: Identificador de la tarjeta débito asociada para top-up (puede ser nulo)
+          example: "CARD-1234567890ABCDEF"
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+          description: Fecha y hora de creación de la wallet (ISO 8601)
+          example: "2024-01-01T00:00:00"
+        updatedAt:
+          type: string
+          format: date-time
+          description: Fecha y hora de última actualización (ISO 8601)
+          example: "2024-01-15T12:00:00"
+
+    AmountRequest:
+      type: object
+      required: [amount]
+      description: Solicitud con un monto para operaciones de top-up o retiro
+      properties:
+        amount:
+          type: number
+          format: decimal
+          description: Monto de la operación (debe ser mayor a cero)
+          example: 100.00
+          minimum: 0.01
+
+    SendRequest:
+      type: object
+      required: [recipientPhone, amount]
+      description: Solicitud para enviar dinero P2P a otro wallet
+      properties:
+        recipientPhone:
+          type: string
+          description: Número de teléfono del destinatario
+          example: "+51999888777"
+        amount:
+          type: number
+          format: decimal
+          description: Monto a enviar (debe ser mayor a cero)
+          example: 50.00
+          minimum: 0.01
+
+    AssociateCardRequest:
+      type: object
+      required: [cardId]
+      description: Solicitud para asociar una tarjeta débito al wallet
+      properties:
+        cardId:
+          type: string
+          description: Identificador de la tarjeta débito a asociar
+          example: "CARD-1234567890ABCDEF"
+
+    TransactionResponse:
+      type: object
+      description: Detalle de una transacción del wallet
+      properties:
+        id:
+          type: string
+          description: Identificador único de la transacción
+          example: "TX-1234567890ABCDEF"
+        walletId:
+          type: string
+          description: Identificador de la wallet a la que pertenece la transacción
+          example: "WALLET-1234567890ABCDEF"
+        type:
+          type: string
+          description: |
+            Tipo de transacción.
+            - TOPUP: carga de saldo desde tarjeta débito
+            - SEND: envío P2P a otro wallet
+            - RECEIVE: recepción P2P desde otro wallet
+            - WITHDRAWAL: retiro a cuenta bancaria
+          enum: [TOPUP, SEND, RECEIVE, WITHDRAWAL]
+          example: "SEND"
+        amount:
+          type: number
+          format: decimal
+          description: Monto de la transacción
+          example: 100.00
+        balanceAfter:
+          type: number
+          format: decimal
+          description: Saldo de la wallet después de la transacción
+          example: 900.50
+        status:
+          type: string
+          description: |
+            Estado actual de la transacción.
+            - PENDING: pendiente de procesamiento
+            - COMPLETED: completada exitosamente
+            - REJECTED: rechazada
+          enum: [PENDING, COMPLETED, REJECTED]
+          example: "COMPLETED"
+        counterpartyPhone:
+          type: string
+          description: Número de teléfono de la contraparte (en operaciones P2P)
+          example: "+51999888777"
+          nullable: true
+        referenceId:
+          type: string
+          description: Identificador de referencia externa de la transacción
+          example: "REF-ABCDEF123456"
+          nullable: true
+        description:
+          type: string
+          description: Descripción humana de la transacción
+          example: "Envío P2P"
+          nullable: true
+        occurredAt:
+          type: string
+          format: date-time
+          description: Fecha y hora en que ocurrió la transacción (ISO 8601)
+          example: "2024-01-15T12:00:00"
+
+    WalletPageResponse:
+      type: object
+      description: Respuesta paginada de wallets
+      properties:
+        content:
+          type: array
+          description: Lista de wallets en la página actual
+          items:
+            $ref: '#/components/schemas/WalletResponse'
+        page:
+          type: integer
+          description: Número de página actual (base 0)
+          example: 0
+        size:
+          type: integer
+          description: Tamaño de página
+          example: 20
+        totalElements:
+          type: integer
+          format: int64
+          description: Total de elementos
+          example: 45
+        totalPages:
+          type: integer
+          description: Total de páginas
+          example: 3
+        first:
+          type: boolean
+          description: Si es la primera página
+          example: true
+        last:
+          type: boolean
+          description: Si es la última página
+          example: false
+
+    ApiError:
+      type: object
+      description: Cuerpo estándar de error de la API Yanki
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+          description: Momento exacto en que se generó el error (ISO 8601)
+          example: "2024-01-15T10:30:00Z"
+        status:
+          type: integer
+          format: int32
+          description: Código de estado HTTP
+          example: 400
+        error:
+          type: string
+          description: Descripción textual del error HTTP
+          example: "Bad Request"
+        code:
+          type: string
+          description: Código de negocio específico del error
+          example: "WALLET_NOT_FOUND"
+        message:
+          type: string
+          description: Descripción legible del error en español
+          example: "Wallet no encontrada"
+        path:
+          type: string
+          description: Ruta de la API que originó el error
+          example: "/api/wallets"
+        details:
+          type: object
+          description: Detalle adicional del error
+          additionalProperties: true
+          nullable: true
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Token JWT obtenido mediante el endpoint /api/auth/login del auth-service
+
+security:
+  - BearerAuth: []
