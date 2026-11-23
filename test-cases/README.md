@@ -43,7 +43,7 @@ Directorio de casos de prueba del microservicio **wallet-service** (monedero mó
 
 ## Referencias
 
-- **Fuente original:** `../../CASOS_PRUEBA/CASOS_PRUEBA_QA.md`
-- **Matriz de trazabilidad:** `../../CASOS_PRUEBA/RTM.md`
-- **Trazabilidad por servicio:** `../../CASOS_PRUEBA/TRACEABILIDAD_POR_SERVICIO.md` (Sección 7)
+- **Fuente original:** `../../docs/CASOS_PRUEBA`
+- **Matriz de trazabilidad:** `../../docs/CASOS_PRUEBA`
+- **Trazabilidad por servicio:** `../../docs/CASOS_PRUEBA` (Sección 7)
 - **Documentación del servicio:** `../README.md`

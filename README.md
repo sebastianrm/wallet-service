@@ -381,9 +381,9 @@ Los casos de prueba detallados (18 casos: 7 Happy Path + 11 Error) se encuentran
 | `../Proyecto General vf.md` | Parte III § Wallet Yanki | Requisitos base del monedero móvil |
 | `../README.md` | Arquitectura global | Mapa de microservicios, flujos bidireccionales, vistas locales |
 | `AGENTS.md` (este servicio) | Especificación técnica | Stack, protocolos, deployment, observabilidad, runbook |
-| `../CASOS_PRUEBA/CASOS_PRUEBA_QA.md` | CU-17, CU-20 | Fuente original de los casos de prueba |
-| `../CASOS_PRUEBA/RTM.md` | Fila CU-17, CU-20 | Matriz de trazabilidad completa |
-| `../CASOS_PRUEBA/TRACEABILIDAD_POR_SERVICIO.md` | Sección 7 | Mapeo wallet-service ↔ CU ↔ SEC ↔ CP |
+| `../docs/CASOS_PRUEBA` | CU-17, CU-20 | Fuente original de los casos de prueba |
+| `../docs/CASOS_PRUEBA` | Fila CU-17, CU-20 | Matriz de trazabilidad completa |
+| `../docs/CASOS_PRUEBA` | Sección 7 | Mapeo wallet-service ↔ CU ↔ SEC ↔ CP |
 | `../docs/EVENTOS.md` | Catálogo topics Kafka | wallet.*, debit.payment, card.* |
 | `../docker-compose.full.yml` | Infraestructura | Servicios y dependencias |
 | `../init-mongo-parte1.js` | Datos de prueba | Vistas locales y seed data |

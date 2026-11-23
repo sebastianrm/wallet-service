@@ -1,7 +1,7 @@
 # CASOS DE PRUEBA — wallet-service
 
 > **Microservicio:** wallet-service (puerto 8087)  
-> **Fuente original:** `CASOS_PRUEBA/CASOS_PRUEBA_QA.md`  
+> **Fuente original:** `../../docs/CASOS_PRUEBA`  
 > **Casos de Uso:** CU-17 (Gestión de Wallet), CU-20 (Flujo Integral Wallet)  
 > **Diagramas de Secuencia:** SEC015–SEC020, SEC028, SEC034  
 > **Total de casos:** 18 (7 Happy Path + 11 Error)
@@ -259,9 +259,9 @@
 
 | Archivo | Sección | Descripción |
 |---------|---------|-------------|
-| `../../CASOS_PRUEBA/CASOS_PRUEBA_QA.md` | CU-17, CU-20 | Fuente original de los casos de prueba |
-| `../../CASOS_PRUEBA/RTM.md` | Fila CU-17, CU-20 | Matriz de trazabilidad completa |
-| `../../CASOS_PRUEBA/TRACEABILIDAD_POR_SERVICIO.md` | Sección 7 | Mapeo wallet-service ↔ CU ↔ SEC ↔ CP |
+| `../../docs/CASOS_PRUEBA` | CU-17, CU-20 | Fuente original de los casos de prueba |
+| `../../docs/CASOS_PRUEBA` | Fila CU-17, CU-20 | Matriz de trazabilidad completa |
+| `../../docs/CASOS_PRUEBA` | Sección 7 | Mapeo wallet-service ↔ CU ↔ SEC ↔ CP |
 | `../../DIAGRAMAS_SECUENCIAS/SEC015_apertura_wallet.md` | Diagrama completo | Flujo de apertura wallet |
 | `../../DIAGRAMAS_SECUENCIAS/SEC016_topup_wallet.md` | Diagrama completo | Flujo de top-up wallet |
 | `../../DIAGRAMAS_SECUENCIAS/SEC017_pago_p2p_wallet.md` | Diagrama completo | Flujo de pago P2P |
